@@ -15,7 +15,7 @@
 #  Darkfall         http://git.io/vZxRK 
 #
 #  Forms implementation and additional work by:
-#  Gordon Merryweather
+#  Sceptico         http://github.com/Scepticalist/
 #
 ################################################################################
 #
