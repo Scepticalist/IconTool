@@ -15,7 +15,7 @@
 #  Darkfall         http://git.io/vZxRK 
 #
 #  Forms implementation and additional work by:
-#  Sceptico         http://sceptico.wordpress.com
+#  Gordon Merryweather
 #
 ################################################################################
 #
@@ -26,11 +26,13 @@
 #   14/01/20    v0.85   Fix bug in resetting app for new images
 #                       Set up tab order
 #                       Fix bug in tall image icon export
+#   16/01/20    v0.87   Fix bug in adding code example
+#   20/01/20    v0.90   Fix bug in file type splitting
+#               v0.91   Move icon extractor class setup to after form shown
 #
 ################################################################################
 #
-#
-$Version = 'v0.85'
+$Version = 'v0.91'
 #
 Try {
     Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
@@ -42,99 +44,7 @@ Catch {
     Pause
     Break
 }
-#Region IconExtrator
-$code = '
-using System;
-using System.Drawing;
-using System.Runtime.InteropServices;
-using System.IO;
 
-namespace System {
-    public class IconExtractor {
-        public static Icon Extract(string file, int number, bool largeIcon) {
-            IntPtr large;
-            IntPtr small;
-            ExtractIconEx(file, number, out large, out small, 1);
-            try  { return Icon.FromHandle(largeIcon ? large : small); }
-            catch  { return null; }
-        }
-        [DllImport("Shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
-        private static extern int ExtractIconEx(string sFile, int iIndex, out IntPtr piLargeVersion, out IntPtr piSmallVersion, int amountIcons);
-    }
-}
-
-public class PngIconConverter
-{
-    public static bool Convert(System.IO.Stream input_stream, System.IO.Stream output_stream, int size, bool keep_aspect_ratio = false)
-    {
-        System.Drawing.Bitmap input_bit = (System.Drawing.Bitmap)System.Drawing.Bitmap.FromStream(input_stream);
-        if (input_bit != null)
-        {
-            int width, height;
-            if (keep_aspect_ratio)
-            {
-                width = size;
-                height = input_bit.Height / input_bit.Width * size;
-            }
-            else
-            {
-                width = height = size;
-            }
-            System.Drawing.Bitmap new_bit = new System.Drawing.Bitmap(input_bit, new System.Drawing.Size(width, height));
-            if (new_bit != null)
-            {
-                System.IO.MemoryStream mem_data = new System.IO.MemoryStream();
-                new_bit.Save(mem_data, System.Drawing.Imaging.ImageFormat.Png);
-
-                System.IO.BinaryWriter icon_writer = new System.IO.BinaryWriter(output_stream);
-                if (output_stream != null && icon_writer != null)
-                {
-                    icon_writer.Write((byte)0);
-                    icon_writer.Write((byte)0);
-                    icon_writer.Write((short)1);
-                    icon_writer.Write((short)1);
-                    icon_writer.Write((byte)width);
-                    icon_writer.Write((byte)height);
-                    icon_writer.Write((byte)0);
-                    icon_writer.Write((byte)0);
-                    icon_writer.Write((short)0);
-                    icon_writer.Write((short)32);
-                    icon_writer.Write((int)mem_data.Length);
-                    icon_writer.Write((int)(6 + 16));
-                    icon_writer.Write(mem_data.ToArray());
-                    icon_writer.Flush();
-                    return true;
-                }
-            }
-            return false;
-        }
-        return false;
-    }
-
-    public static bool Convert(string input_image, string output_icon, int size, bool keep_aspect_ratio = false)
-    {
-        System.IO.FileStream input_stream = new System.IO.FileStream(input_image, System.IO.FileMode.Open);
-        System.IO.FileStream output_stream = new System.IO.FileStream(output_icon, System.IO.FileMode.OpenOrCreate);
-
-        bool result = Convert(input_stream, output_stream, size, keep_aspect_ratio);
-
-        input_stream.Close();
-        output_stream.Close();
-
-        return result;
-    }
-}
-'
-#EndRegion IconExtractor
-# Add IconExtrator class
-    Try {
-        Add-Type -TypeDefinition $code -ReferencedAssemblies System.Drawing, System.IO -ErrorAction Stop
-    }
-    Catch {
-        $_
-        Pause
-        Break
-    }
 #
 #Region B64Images
 $DasImage = 'iVBORw0KGgoAAAANSUhEUgAAAPEAAABOCAIAAAB+NWf+AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAACo2SURBVHhe7Z15IJXL+8BfayhbaCUVspSkECqRFmv2nSwlhEqLtHfbVyV1pbqlUkpa
@@ -220,13 +130,75 @@ vLmyPSjq7OAAoqZrVuvrri5qJjQXvNbQXLLaCLroTbl19MjNZCBYaM6sIqAJoYe3X4D3gbqc1KE8ibeO
 HBycQHhks90gaI7i/9iDB2A0nj3+mmv77e6+amVGRp2/2PvXuYeTng0fnUeBUeg3euOw/eJ9D/z3cy49HU0I3ySh8UPe5keVf33vVZWV0jLQ98BI89/22/cLgvwfY4uV8ZkRakYAAAAASUVORK5CYII=
 '
 #
-$AppIcon = 'AAABAAEAICAQNgAAAADoAgAAFgAAACgAAAAgAAAAQAAAAAEABAAAAAAAgAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACAAAAAgIAAgAAAAIAAgACAgAAAgICAAMDAwAAAAP8AAP8AAAD//wD/AAAA/wD/AP//AAD///8AAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHMzMzMzMzMzMzMzMzMzMzB/uLi4uLi4uLi4uLi4uLgwf4uLi4uE7ECLHZELi4uLMH+4uLi4tOxAuB2RCLi4uDB/i4uLi4TsQIsdkQuLi4sw
-f7i4uLi0jsC4H4kIuLi4MH+Li4uLi0RLi4ERi4uLizB/uLi4uLgICLi3gLi4uLgwf4uLi4uLCAuLh4CLi4uLMH+4uLi4uAgIuLeAuLi4uDB/i4uAC4AIAIuAAIuLi4swf7i4d3AHeHcABwC4uLi4MH+Li3iHeIiId38Ai4uLizB/uLh/j/iI
-iIjwgLi4uLgwf4uLf/d/////CIcLi4uLMH+4uLd4t3d3d3iHCLi4uDB/i4uLi4uLi4t4hwuLi4swf7i4uLi4uLi4f4cIuLi4MH+Li4uLi4uLi3d3C4uLizB/uLi4uLi4uLi4uLi4uLgwf///////////////////AHiIiIiIiIiId3d3d3d3
-dwAH+4uLi4uLhwAAAAAAAAAAAH+4uLi4uHAAAAAAAAAAAAAH//////cAAAAAAAAAAAAAAHd3d3dwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////+AAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAA4AA///AAf//4AP///AH/////////////w=='
+#
+$AppIcon = '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
+QbjKAAAAAElFTkSuQmCC'
 #EndRegion B64Images
+#
+#Region CodeExample
+$CodeText = @'
+#
+#
+# Paste Base64 data string into these variables as required
+#
+# Embedded image
+$EmbedImage = ''
+#
+# Form Icon
+$AppIcon = ''
+#
+# Now we convert Base64 data back to objects
+#
+Function Get-ImgStreamFromB64 ($B64Img) {
+    $Bytes = [Convert]::FromBase64String($B64Img)
+    $stream = New-Object IO.MemoryStream($Bytes, 0, $Bytes.Length)
+    $stream.Write($Bytes, 0, $Bytes.Length);
+    Return $stream
+}
+#
+$MyImg = New-Object System.Drawing.Bitmap -Argument (Get-ImgStreamFromB64 $EmbedImage)
+$MyIcon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument (Get-ImgStreamFromB64 $AppIcon)).GetHIcon())
+#
+#
+# Now use Image/Icon in form e.g.
+$form = New-Object System.Windows.Forms.Form
+$form.size = '500,500'
+$form.Icon = $MyIcon
+
+$EmbedImage = New-Object System.Windows.Forms.PictureBox
+$EmbedImage.Width = $MyImg.Width
+$EmbedImage.Height = $MyImg.Height
+$EmbedImage.Location = New-Object System.Drawing.Point(($form.Width - $MyImg.Width - 30), (10))
+$EmbedImage.Image = $MyImg
+$EmbedImage.Anchor = 'Top,Right'
+
+$form.Controls.Add($EmbedImage)
+
+#
+# Show form
+$form.ShowDialog() | Out-Null
+$form.Dispose()
+#
+'@ -replace "`n", ""
+#EndRegion CodeExample
 #
 # Convert Base64 data back to object
 Function Get-ImgStreamFromB64 ($B64Img) {
@@ -268,7 +240,6 @@ $form.MaximumSize = '525,1400'
 $form.StartPosition = 'CenterScreen'
 $form.MaximizeBox = $false
 $form.Icon = $MyIcon
-#
 #Autoscaling settings
 $form.AutoScale = $true
 $form.AutoScaleMode = "Font"
@@ -515,12 +486,13 @@ $BrowseBtn.Add_Click({
     $null = $FileBrowser.ShowDialog()
     If ($FileBrowser.FileName) {
         Try {
-            $InputFileType =  (Split-Path -Path $FileBrowser.FileName -Leaf -ErrorAction Stop).Split(".")[1]
+            [string]$InputFileType = ([IO.Path]::GetExtension($FileBrowser.FileName)).Split(".")[1]
+            $LoggingText.AppendText("`r`nFile type: $InputFileType")
         }
         Catch {
             $LoggingText.AppendText("`r`nError determining file type`r`n" + "$_")
         }
-        If ($InputFileType -in ('exe','dll','ico','icon')) {
+        If ($InputFileType -in ('exe','dll','icl')) {
     # Icon source, extract icons to list
             $LoggingText.AppendText("`r`nIcon source")
             $Script:Source = 'Icon'
@@ -732,11 +704,12 @@ $ExportBtn.Add_Click({
                 Else {
                     $Split = $Base64Out
                 }
+                If ($B64ExportType.Checked) {
+                    $LoggingText.AppendText("`r`nAdding code example")
+                    $Split = ($Split + "`r`n" + $CodeText)
+                }
                 $SavePath = "$OutfileName-Base64.txt"
                 $LoggingText.AppendText("`r`n`r`nWriting data to $SavePath")
-                If ($B64ExportType.Checked) {
-                    $Split = $Split + "`r`n" + $CodeText
-                }
                 $Split | Out-File -FilePath $SavePath
                 $LoggingText.AppendText("`r`nDone`r`n")
             }
@@ -897,54 +870,103 @@ $ExportBtn.Add_Click({
     }
 })
 #
+$form.Add_Shown({
+#Region IconExtrator
+    $LoggingText.AppendText("`r`nLoading icon extractor")
+$code = '
+using System;
+using System.Drawing;
+using System.Runtime.InteropServices;
+using System.IO;
+
+namespace System {
+    public class IconExtractor {
+        public static Icon Extract(string file, int number, bool largeIcon) {
+            IntPtr large;
+            IntPtr small;
+            ExtractIconEx(file, number, out large, out small, 1);
+            try  { return Icon.FromHandle(largeIcon ? large : small); }
+            catch  { return null; }
+        }
+        [DllImport("Shell32.dll", EntryPoint = "ExtractIconExW", CharSet = CharSet.Unicode, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
+        private static extern int ExtractIconEx(string sFile, int iIndex, out IntPtr piLargeVersion, out IntPtr piSmallVersion, int amountIcons);
+    }
+}
+
+public class PngIconConverter
+{
+    public static bool Convert(System.IO.Stream input_stream, System.IO.Stream output_stream, int size, bool keep_aspect_ratio = false)
+    {
+        System.Drawing.Bitmap input_bit = (System.Drawing.Bitmap)System.Drawing.Bitmap.FromStream(input_stream);
+        if (input_bit != null)
+        {
+            int width, height;
+            if (keep_aspect_ratio)
+            {
+                width = size;
+                height = input_bit.Height / input_bit.Width * size;
+            }
+            else
+            {
+                width = height = size;
+            }
+            System.Drawing.Bitmap new_bit = new System.Drawing.Bitmap(input_bit, new System.Drawing.Size(width, height));
+            if (new_bit != null)
+            {
+                System.IO.MemoryStream mem_data = new System.IO.MemoryStream();
+                new_bit.Save(mem_data, System.Drawing.Imaging.ImageFormat.Png);
+
+                System.IO.BinaryWriter icon_writer = new System.IO.BinaryWriter(output_stream);
+                if (output_stream != null && icon_writer != null)
+                {
+                    icon_writer.Write((byte)0);
+                    icon_writer.Write((byte)0);
+                    icon_writer.Write((short)1);
+                    icon_writer.Write((short)1);
+                    icon_writer.Write((byte)width);
+                    icon_writer.Write((byte)height);
+                    icon_writer.Write((byte)0);
+                    icon_writer.Write((byte)0);
+                    icon_writer.Write((short)0);
+                    icon_writer.Write((short)32);
+                    icon_writer.Write((int)mem_data.Length);
+                    icon_writer.Write((int)(6 + 16));
+                    icon_writer.Write(mem_data.ToArray());
+                    icon_writer.Flush();
+                    return true;
+                }
+            }
+            return false;
+        }
+        return false;
+    }
+
+    public static bool Convert(string input_image, string output_icon, int size, bool keep_aspect_ratio = false)
+    {
+        System.IO.FileStream input_stream = new System.IO.FileStream(input_image, System.IO.FileMode.Open);
+        System.IO.FileStream output_stream = new System.IO.FileStream(output_icon, System.IO.FileMode.OpenOrCreate);
+
+        bool result = Convert(input_stream, output_stream, size, keep_aspect_ratio);
+
+        input_stream.Close();
+        output_stream.Close();
+
+        return result;
+    }
+}
+'
+#EndRegion IconExtractor
+# Add IconExtrator class
+    Try {
+        Add-Type -TypeDefinition $code -ReferencedAssemblies System.Drawing, System.IO -ErrorAction Stop
+        $LoggingText.AppendText("`r`nDone")
+    }
+    Catch {
+        $LoggingText.AppendText("`r`nError" + "$_")
+    }
+})
+#
 # Show form
 $form.ShowDialog() | Out-Null
 $form.Dispose()
 # End
-#Region B64CodeSample
-#
-$CodeText = @'
-#
-#
-# Paste Base64 data string(s) into these variables as required
-#
-# Embedded image
-$EmbedImage = ''
-#
-# Form Icon
-$AppIcon = ''
-#
-# Now we convert Base64 data back to objects
-#
-Function Get-ImgStreamFromB64 ($B64Img) {
-    $Bytes = [Convert]::FromBase64String($B64Img)
-    $stream = New-Object IO.MemoryStream($Bytes, 0, $Bytes.Length)
-    $stream.Write($Bytes, 0, $Bytes.Length);
-    Return $stream
-}
-#
-$MyImg = New-Object System.Drawing.Bitmap -Argument (Get-ImgStreamFromB64 $EmbedImage)
-$MyIcon = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument (Get-ImgStreamFromB64 $AppIcon)).GetHIcon())
-#
-#
-# Now use Image/Icon in form e.g.
-$form = New-Object System.Windows.Forms.Form
-$form.size = '500,500'
-$form.Icon = $MyIcon
-
-$EmbedImage = New-Object System.Windows.Forms.PictureBox
-$EmbedImage.Width = $MyImg.Width
-$EmbedImage.Height = $MyImg.Height
-$EmbedImage.Location = New-Object System.Drawing.Point(($form.Width - $MyImg.Width - 30), (10))
-$EmbedImage.Image = $MyImg
-$EmbedImage.Anchor = 'Top,Right'
-
-$form.Controls.Add($EmbedImage)
-
-#
-# Show form
-$form.ShowDialog() | Out-Null
-$form.Dispose()
-#
-'@ -replace "`n", ""
-#EndRegion B64CodeSample
