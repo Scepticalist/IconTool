@@ -15,10 +15,16 @@
 #  Darkfall         http://git.io/vZxRK 
 #
 #  Forms implementation and additional work by:
-#  Sceptico         http://github.com/Scepticalist/
+#  Sceptico         http://sceptico.wordpress.com
 #
 ################################################################################
 #
+#   08/01/20    v0.40   Work on export logic for image files
+#               v0.50   Test release version
+#               v0.60   Added ability to import images
+#               v0.70   Can export both icon and image types to Base64
+#                       Optional formatting
+#               v0.72   Image save working, need to rectify bitmaps for non-square images
 #   11/01/20    v0.76   Non-square exports working for bitmaps
 #               v0.80   Image resizing
 #               v0.81   Tidy code
@@ -29,10 +35,12 @@
 #   16/01/20    v0.87   Fix bug in adding code example
 #   20/01/20    v0.90   Fix bug in file type splitting
 #               v0.91   Move icon extractor class setup to after form shown
+#   23/01/20    v0.92   Changed tempfile deletion to use Remove-Item
 #
 ################################################################################
 #
-$Version = 'v0.91'
+#
+$Version = 'v0.92'
 #
 Try {
     Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
@@ -129,7 +137,6 @@ P3Al8tWDc8/fd1XnPV+4UNNzJ7x4bDQz1NPTDX6QAisdDuTGrM1HbgLBc8MGEEZd2q1i6gEEsKOfrj9O
 vLmyPSjq7OAAoqZrVuvrri5qJjQXvNbQXLLaCLroTbl19MjNZCBYaM6sIqAJoYe3X4D3gbqc1KE8ibeOxmXBi+aH9NhFi7W2b/eMSC1JvBaAHXl2FR7tyMPaiFK6mR2bXhYefNDMxuxKZFp11tOhds1XhA58v/gjSKuWaOiu0ClqIKLt77BK
 HBycQHhks90gaI7i/9iDB2A0nj3+mmv77e6+amVGRp2/2PvXuYeTng0fnUeBUeg3euOw/eJ9D/z3cy49HU0I3ySh8UPe5keVf33vVZWV0jLQ98BI89/22/cLgvwfY4uV8ZkRakYAAAAASUVORK5CYII=
 '
-#
 #
 $AppIcon = 'AAABAAEAQEAAAAAAIADhCAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAABAAAAAQAgGAAAAqmlx3gAAAAFzUkdCAK7OHOkAAAAEZ0FNQQAAsY8L/GEFAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAIdklEQVR4Xu3a21MU
 Vx4HcP+EPO4/kIe8pcrdh1StKXdrlSBJdtfa2q2EXWPYxCTmohgvRN0tRCBATFQEg4iWxiAxMRpX3UXFBeQml5mBQUHugTCDODJchouJLt/9nUu3dNOD3doH8sCp+lZZzamyv5+ePnN6ZpYsjsWxOB45Ir645aNN
@@ -738,7 +745,7 @@ $ExportBtn.Add_Click({
                             $LoggingText.AppendText("`r`nWriting icon to $SavePath")
                             [PngIconConverter]::Convert($tempfile,$SavePath,$ImgSize.Text,$true) | Out-Null
                             # Keep remove-item from complaining about weird directories
-                            cmd /c del $tempfile
+                            Remove-Item -Path $tempfile -Force -Confirm:$false -ErrorAction Stop
                             $LoggingText.AppendText("`r`nDone`r`n")
                         }
                 # Export icon to image
@@ -838,7 +845,7 @@ $ExportBtn.Add_Click({
                             $LoggingText.AppendText("`r`nWriting icon data to $SavePath")
                             [PngIconConverter]::Convert($tempfile,$SavePath,$ImgSize.Text,$true) | Out-Null
                             # Keep remove-item from complaining about weird directories
-                            cmd /c del $tempfile
+                            Remove-Item -Path $tempfile -Force -Confirm:$false -ErrorAction Stop
                             $NewBitmap.Dispose()
                             #
                         }
